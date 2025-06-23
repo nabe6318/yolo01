@@ -6,7 +6,7 @@ from PIL import Image
 import os
 
 # モデルのロード
-model = YOLO("yolov8x.pt")  # or your own trained model
+model = YOLO("yolov8n.pt")  # or your own trained model
 
 st.title("YOLOv8 画像・動画検出アプリ")
 
