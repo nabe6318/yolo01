@@ -1,45 +1,33 @@
 import streamlit as st
 from ultralytics import YOLO
-import tempfile
-import cv2
 from PIL import Image
+import tempfile
 import os
 
-# モデルのロード
-model = YOLO("yolov8n.pt")  # or your own trained model
+st.title("YOLOv8 画像検出アプリ（OpenCVなし）")
 
-st.title("YOLOv8 画像・動画検出アプリ")
+# モデルの読み込み（yolov8n.ptは最軽量）
+model = YOLO("yolov8n.pt")  # または "best.pt"
 
 # ファイルアップロード
-uploaded_file = st.file_uploader("画像または動画ファイルをアップロードしてください", type=["jpg", "jpeg", "png", "mp4", "mov"])
+uploaded_file = st.file_uploader("画像ファイルをアップロードしてください", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # 一時ファイルとして保存
-    suffix = os.path.splitext(uploaded_file.name)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        temp_file.write(uploaded_file.read())
-        temp_path = temp_file.name
+    # アップロード画像の一時保存
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp:
+        temp.write(uploaded_file.read())
+        temp_path = temp.name
 
-    # 画像 or 動画処理の分岐
-    if suffix.lower() in [".jpg", ".jpeg", ".png"]:
-        st.image(temp_path, caption="元画像", use_column_width=True)
-        results = model.predict(source=temp_path, save=False, conf=0.5)
+    # 元画像表示
+    st.image(temp_path, caption="元画像", use_column_width=True)
 
-        # 検出画像をPILで描画
-        for r in results:
-            img = r.plot()  # numpy array
-            st.image(img, caption="検出結果", channels="BGR", use_column_width=True)
+    # YOLOで推論（save=Falseでメモリ上処理）
+    results = model.predict(source=temp_path, conf=0.5, save=False)
 
-    elif suffix.lower() in [".mp4", ".mov"]:
-        st.video(temp_path)
-        st.write("動画を処理中...")
-        # 検出後の動画を保存するパス
-        output_path = temp_path.replace(suffix, f"_detected{suffix}")
-        results = model.predict(source=temp_path, save=True, conf=0.5, project="runs", name="streamlit", exist_ok=True)
+    # 検出後の画像（PIL.Image）を取得・表示
+    for r in results:
+        img_pil = Image.fromarray(r.plot())  # numpy → PIL
+        st.image(img_pil, caption="検出結果", use_column_width=True)
 
-        # 結果保存先の動画を取得
-        output_video_path = os.path.join("runs", "detect", "streamlit", os.path.basename(temp_path))
-        if os.path.exists(output_video_path):
-            st.video(output_video_path)
-        else:
-            st.error("検出結果の動画が見つかりませんでした。")
+    # 一時ファイル削除
+    os.remove(temp_path)
